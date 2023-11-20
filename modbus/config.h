@@ -3,8 +3,7 @@
 #include "inttypes.h"
 
 #define MODBUS_ADDR_BROADCAST (0)
-#define MODBUS_ADDR_SLAVE (1)
-#define MODBUS_MALLOC_MAX (256 * 2)
+#define MODBUS_MALLOC_MAX (512)
 
 void* modbus_arch_malloc(int size);
 void modbus_arch_free(void* ptr);

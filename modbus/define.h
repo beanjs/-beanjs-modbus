@@ -13,6 +13,7 @@
 #define MODBUS_OPCODE_WRITE_REGISTER (0x06)
 #define MODBUS_OPCODE_WRITE_COILS (0x0F)
 #define MODBUS_OPCODE_WRITE_REGISTERS (0x10)
+
 #define MODBUS_OPCODE_ERROR_MASK (0x80)
 #define MODBUS_OPCODE_FUNC_MASK (0x7F)
 
@@ -136,6 +137,7 @@ typedef struct {
   void (*reserve15)(uint8_t, void*);
   void (*write_coils)(uint8_t addr, modbus_request_t* req);
   void (*write_registers)(uint8_t addr, modbus_request_t* req);
+  void (*forward)(uint8_t addr, modbus_request_t* req);
 } modbus_hooks_slave_t;
 
 typedef struct {
@@ -159,7 +161,7 @@ typedef struct {
 } modbus_hooks_master_t;
 
 typedef struct {
-  uint8_t* temp;
+  uint8_t* cache;
   uint8_t addr;  // slave only
   modbus_type_t type;
   modbus_driver_t* driver;

@@ -4,6 +4,8 @@
 
 #include "config.h"
 
+static void modbus_hook_noop(uint8_t addr, void*) {}
+
 static void modbus_run_hook(modbus_t* m, modbus_package_t* p) {
   modbus_hook_t* hooks = (modbus_hook_t*)&m->hooks;
   modbus_hook_t hook_func = 0;
@@ -11,8 +13,20 @@ static void modbus_run_hook(modbus_t* m, modbus_package_t* p) {
   void* hook_arg;
 
   if (m->type == MODBUS_TYPE_SLAVE) {
-    if (m->addr != p->addr && MODBUS_ADDR_BROADCAST != p->addr) {
-      return;
+    modbus_hook_t forward_func = modbus_hook_noop;
+    if (m->hooks.slave.forward) {
+      forward_func = (modbus_hook_t)m->hooks.slave.forward;
+    }
+
+    if (m->addr != p->addr) {
+      forward_func(p->addr, &p->req);
+      // 这里需要手动释放请求并返回，不触发回调函数
+      return modbus_request_free(&p->req);
+    }
+
+    if (MODBUS_ADDR_BROADCAST == p->addr) {
+      // 往下层广播数据
+      forward_func(p->addr, &p->req);
     }
 
     hook_func = hooks[p->req.opcode & MODBUS_OPCODE_FUNC_MASK];
@@ -82,30 +96,48 @@ static void modbus_run_decode(modbus_t* m, uint8_t* buf, int len) {
 void modbus_init(modbus_t* m) {
   modbus_buffer_init(&m->inbuf, MODBUS_MALLOC_MAX);
   modbus_buffer_init(&m->oubuf, MODBUS_MALLOC_MAX);
-  m->temp = modbus_arch_malloc(MODBUS_MALLOC_MAX);
+  m->cache = modbus_arch_malloc(MODBUS_MALLOC_MAX);
   m->driver->init();
 }
 
 void modbus_idle(modbus_t* m) {
-  modbus_run_recv(m, m->temp, MODBUS_MALLOC_MAX);
-
-  modbus_run_decode(m, m->temp, MODBUS_MALLOC_MAX);
-
-  modbus_run_send(m, m->temp, MODBUS_MALLOC_MAX);
+  modbus_run_recv(m, m->cache, MODBUS_MALLOC_MAX);
+  modbus_run_decode(m, m->cache, MODBUS_MALLOC_MAX);
+  modbus_run_send(m, m->cache, MODBUS_MALLOC_MAX);
 }
 
 void modbus_kill(modbus_t* m) {
   m->driver->kill();
-  modbus_arch_free(m->temp);
+  modbus_arch_free(m->cache);
   modbus_buffer_kill(&m->inbuf);
   modbus_buffer_kill(&m->oubuf);
 }
 
-void modbus_request_init(modbus_request_t* req, uint8_t opcode) {}
-void modbus_request_send(modbus_request_t* req, uint8_t addr, modbus_t* m) {}
+void modbus_request_init(modbus_request_t* req, uint8_t opcode) {
+  modbus_arch_memset(req, 0, sizeof(modbus_request_t));
+  req->opcode = opcode;
+
+  if (MODBUS_REQUEST_HAS_PAYLOAD(req->opcode)) {
+    req->payload.u8 = modbus_arch_malloc(MODBUS_MALLOC_MAX);
+    modbus_arch_memset(req->payload.u8, 0, MODBUS_MALLOC_MAX);
+  }
+}
+
+void modbus_request_send(modbus_request_t* req, uint8_t addr, modbus_t* m) {
+  modbus_buffer_t* oubuf = &m->oubuf;
+  modbus_parser_t* parser = m->parser;
+
+  modbus_package_t clpkg;
+  modbus_arch_memset(&clpkg, 0, sizeof(modbus_package_t));
+  modbus_arch_memcpy(&clpkg.req, req, sizeof(modbus_request_t));
+  clpkg.addr = addr;
+
+  parser->encode(m->type, &clpkg, oubuf);
+}
 void modbus_request_free(modbus_request_t* req) {
-  if (req->payload.length) {
+  if (req->payload.u8) {
     modbus_arch_free(req->payload.u8);
+    req->payload.u8 = 0;
     req->payload.length = 0;
   }
 }
@@ -161,8 +193,9 @@ void modbus_reply_send(modbus_reply_t* rep, uint8_t addr, modbus_t* m) {
 }
 
 void modbus_reply_free(modbus_reply_t* rep) {
-  if (rep->payload.length) {
+  if (rep->payload.u8) {
     modbus_arch_free(rep->payload.u8);
+    rep->payload.u8 = 0;
     rep->payload.length = 0;
   }
 }
