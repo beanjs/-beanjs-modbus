@@ -1,9 +1,9 @@
-#ifndef __MODBUS_CONFIG_H__
-#define __MODBUS_CONFIG_H__
-#include "inttypes.h"
+#ifndef __MODBUS_ARCH_H__
+#define __MODBUS_ARCH_H__
 
-#define MODBUS_ADDR_BROADCAST (0)
-#define MODBUS_MALLOC_MAX (512)
+#include <stdio.h>
+
+#include "inttypes.h"
 
 void* modbus_arch_malloc(int size);
 void modbus_arch_free(void* ptr);

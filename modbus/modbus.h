@@ -1,6 +1,7 @@
 #ifndef __MODBUS_MODBUS_H__
 #define __MODBUS_MODBUS_H__
 
+#include "arch.h"
 #include "define.h"
 #include "parser.h"
 

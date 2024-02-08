@@ -1,6 +1,6 @@
 #include "buffer.h"
 
-#include "config.h"
+#include "arch.h"
 
 void modbus_buffer_init(modbus_buffer_t* b, int capacity) {
   modbus_arch_memset(b, 0, sizeof(modbus_buffer_t));
@@ -8,11 +8,30 @@ void modbus_buffer_init(modbus_buffer_t* b, int capacity) {
   b->capacity = capacity;
   b->raws = modbus_arch_malloc(capacity);
   b->flag |= MODBUS_BUFFER_EMPTY;
+  b->flag |= MODBUS_BUFFER_ALLOC;
 }
 
 void modbus_buffer_kill(modbus_buffer_t* b) {
-  modbus_arch_free(b->raws);
+  if ((b->flag & MODBUS_BUFFER_ALLOC) == MODBUS_BUFFER_ALLOC) {
+    modbus_arch_free(b->raws);
+  }
   modbus_arch_memset(b, 0, sizeof(modbus_buffer_t));
+}
+
+void modbus_buffer_init_reader(modbus_buffer_t* b, uint8_t* src, int len) {
+  modbus_arch_memset(b, 0, sizeof(modbus_buffer_t));
+
+  b->capacity = len;
+  b->raws = src;
+  b->flag |= MODBUS_BUFFER_FULL;
+}
+
+void modbus_buffer_init_writer(modbus_buffer_t* b, uint8_t* src, int capacity) {
+  modbus_arch_memset(b, 0, sizeof(modbus_buffer_t));
+
+  b->capacity = capacity;
+  b->raws = src;
+  b->flag = MODBUS_BUFFER_EMPTY;
 }
 
 void modbus_buffer_skip(modbus_buffer_t* b, int len) {
@@ -166,4 +185,76 @@ bool modbus_buffer_write_u16(modbus_buffer_t* b, uint16_t* v, bool msb) {
 
   int writed = modbus_buffer_write(b, (uint8_t*)&val, 2);
   return writed == 2;
+}
+
+int modbus_buffer_writer(modbus_buffer_t* b, buffer_stream_t reader,
+                         void* arg) {
+  uint8_t* write_pos;
+  int write_len;
+  int writed = 0;
+
+  if (modbus_buffer_is_full(b)) {
+    return writed;
+  }
+
+  write_pos = &b->raws[b->writpos];
+  if (b->readpos > b->writpos) {
+    write_len = (b->readpos - b->writpos);
+  } else {
+    write_len = (b->capacity - b->writpos);
+  }
+
+  int read_len = reader(arg, write_pos, write_len);
+  if (read_len == 0) return writed;
+
+  b->writpos += read_len;
+  b->writpos %= b->capacity;
+  if (b->writpos == b->readpos) {
+    b->flag |= MODBUS_BUFFER_FULL;
+  }
+  b->flag &= ~MODBUS_BUFFER_EMPTY;
+
+  writed += read_len;
+  if (read_len == write_len) {
+    writed += modbus_buffer_writer(b, reader, arg);
+  }
+
+  return writed;
+}
+
+int modbus_buffer_reader(modbus_buffer_t* b, buffer_stream_t writer,
+                         void* arg) {
+  int readed = 0;
+
+  if (modbus_buffer_is_empty(b)) {
+    return readed;
+  }
+
+  uint8_t* read_pos;
+  int read_len;
+
+  read_pos = &b->raws[b->readpos];
+  if (b->writpos > b->readpos) {
+    read_len = b->writpos - b->readpos;
+  } else {
+    read_len = b->capacity - b->readpos;
+  }
+
+  int write_len = writer(arg, read_pos, read_len);
+  if (write_len == 0) return readed;
+
+  b->readpos += write_len;
+  b->readpos %= b->capacity;
+  if (b->readpos == b->writpos) {
+    b->flag |= MODBUS_BUFFER_EMPTY;
+  }
+  b->flag &= ~MODBUS_BUFFER_FULL;
+
+  readed += write_len;
+
+  if (read_len == write_len) {
+    readed += modbus_buffer_reader(b, writer, arg);
+  }
+
+  return readed;
 }

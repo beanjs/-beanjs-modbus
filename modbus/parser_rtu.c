@@ -1,73 +1,38 @@
-#include <stdio.h>
-
-#include "config.h"
 #include "parser.h"
 
-static const uint8_t aucCRCHi[] = {
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
-    0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
-    0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
-    0x00, 0xC1, 0x81, 0x40};
-
-static const uint8_t aucCRCLo[] = {
-    0x00, 0xC0, 0xC1, 0x01, 0xC3, 0x03, 0x02, 0xC2, 0xC6, 0x06, 0x07, 0xC7,
-    0x05, 0xC5, 0xC4, 0x04, 0xCC, 0x0C, 0x0D, 0xCD, 0x0F, 0xCF, 0xCE, 0x0E,
-    0x0A, 0xCA, 0xCB, 0x0B, 0xC9, 0x09, 0x08, 0xC8, 0xD8, 0x18, 0x19, 0xD9,
-    0x1B, 0xDB, 0xDA, 0x1A, 0x1E, 0xDE, 0xDF, 0x1F, 0xDD, 0x1D, 0x1C, 0xDC,
-    0x14, 0xD4, 0xD5, 0x15, 0xD7, 0x17, 0x16, 0xD6, 0xD2, 0x12, 0x13, 0xD3,
-    0x11, 0xD1, 0xD0, 0x10, 0xF0, 0x30, 0x31, 0xF1, 0x33, 0xF3, 0xF2, 0x32,
-    0x36, 0xF6, 0xF7, 0x37, 0xF5, 0x35, 0x34, 0xF4, 0x3C, 0xFC, 0xFD, 0x3D,
-    0xFF, 0x3F, 0x3E, 0xFE, 0xFA, 0x3A, 0x3B, 0xFB, 0x39, 0xF9, 0xF8, 0x38,
-    0x28, 0xE8, 0xE9, 0x29, 0xEB, 0x2B, 0x2A, 0xEA, 0xEE, 0x2E, 0x2F, 0xEF,
-    0x2D, 0xED, 0xEC, 0x2C, 0xE4, 0x24, 0x25, 0xE5, 0x27, 0xE7, 0xE6, 0x26,
-    0x22, 0xE2, 0xE3, 0x23, 0xE1, 0x21, 0x20, 0xE0, 0xA0, 0x60, 0x61, 0xA1,
-    0x63, 0xA3, 0xA2, 0x62, 0x66, 0xA6, 0xA7, 0x67, 0xA5, 0x65, 0x64, 0xA4,
-    0x6C, 0xAC, 0xAD, 0x6D, 0xAF, 0x6F, 0x6E, 0xAE, 0xAA, 0x6A, 0x6B, 0xAB,
-    0x69, 0xA9, 0xA8, 0x68, 0x78, 0xB8, 0xB9, 0x79, 0xBB, 0x7B, 0x7A, 0xBA,
-    0xBE, 0x7E, 0x7F, 0xBF, 0x7D, 0xBD, 0xBC, 0x7C, 0xB4, 0x74, 0x75, 0xB5,
-    0x77, 0xB7, 0xB6, 0x76, 0x72, 0xB2, 0xB3, 0x73, 0xB1, 0x71, 0x70, 0xB0,
-    0x50, 0x90, 0x91, 0x51, 0x93, 0x53, 0x52, 0x92, 0x96, 0x56, 0x57, 0x97,
-    0x55, 0x95, 0x94, 0x54, 0x9C, 0x5C, 0x5D, 0x9D, 0x5F, 0x9F, 0x9E, 0x5E,
-    0x5A, 0x9A, 0x9B, 0x5B, 0x99, 0x59, 0x58, 0x98, 0x88, 0x48, 0x49, 0x89,
-    0x4B, 0x8B, 0x8A, 0x4A, 0x4E, 0x8E, 0x8F, 0x4F, 0x8D, 0x4D, 0x4C, 0x8C,
-    0x44, 0x84, 0x85, 0x45, 0x87, 0x47, 0x46, 0x86, 0x82, 0x42, 0x43, 0x83,
-    0x41, 0x81, 0x80, 0x40};
-
-uint16_t modbus_parser_crc16(modbus_buffer_t *b, int len) {
-  uint8_t ucCRCHi = 0xFF;
-  uint8_t ucCRCLo = 0xFF;
-  uint8_t ucCRCVl = 0x00;
-  int iIndex;
-
-  while (len--) {
-    modbus_buffer_read_u8(b, &ucCRCVl);
-    iIndex = ucCRCLo ^ ucCRCVl;
-    ucCRCLo = (uint8_t)(ucCRCHi ^ aucCRCHi[iIndex]);
-    ucCRCHi = aucCRCLo[iIndex];
-  }
-
-  return (uint16_t)(ucCRCHi << 8 | ucCRCLo);
+static int driver_reader(void *arg, uint8_t *buf, int max) {
+  modbus_driver_rtu_t *drv = arg;
+  return drv->recv(arg, buf, max);
 }
 
-bool modbus_parser_decode_request(modbus_request_t *req, modbus_buffer_t *b) {
+static int driver_writer(void *arg, uint8_t *buf, int len) {
+  if (len == 0) return len;
+  modbus_driver_rtu_t *drv = arg;
+  return drv->send(arg, buf, len);
+}
+
+static uint16_t parser_crc16(modbus_buffer_t *b, int len) {
+  static const uint16_t table[2] = {0x0000, 0xA001};
+  uint16_t crc = 0xFFFF;
+  uint8_t val;
+  char bit = 0;
+  unsigned int xor = 0;
+
+  while (len--) {
+    modbus_buffer_read_u8(b, &val);
+    crc ^= val;
+
+    for (bit = 0; bit < 8; bit++) {
+      xor = crc & 1;
+      crc >>= 1;
+      crc ^= table[xor];
+    }
+  }
+
+  return crc;
+}
+
+static bool parser_decode_request(modbus_request_t *req, modbus_buffer_t *b) {
   if (!modbus_buffer_read_u16(b, &req->address, true)) {
     return false;
   }
@@ -81,7 +46,7 @@ bool modbus_parser_decode_request(modbus_request_t *req, modbus_buffer_t *b) {
       return false;
     }
 
-    req->payload.u8 = modbus_arch_malloc(MODBUS_MALLOC_MAX);
+    req->payload.u8 = modbus_arch_malloc(MODBUS_PAYLOAD_BUFFER_SIZE);
     if (MODBUS_REQUEST_PAYLOAD_BIT(req->opcode)) {
       int readed = modbus_buffer_read(b, req->payload.u8, req->payload.length);
       if (readed != req->payload.length) {
@@ -103,43 +68,7 @@ bool modbus_parser_decode_request(modbus_request_t *req, modbus_buffer_t *b) {
   return true;
 }
 
-bool modbus_parser_encode_request(modbus_request_t *req, modbus_buffer_t *b) {
-  if (!modbus_buffer_write_u16(b, &req->address, true)) {
-    return false;
-  }
-
-  if (!modbus_buffer_write_u16(b, &req->length, true)) {
-    return false;
-  }
-
-  if (MODBUS_REQUEST_HAS_PAYLOAD(req->opcode)) {
-    if (!modbus_buffer_write_u8(b, &req->payload.length)) {
-      return false;
-    }
-
-    if (MODBUS_REQUEST_PAYLOAD_BIT(req->opcode)) {
-      int writed = modbus_buffer_write(b, req->payload.u8, req->payload.length);
-      if (writed != req->payload.length) {
-        return false;
-      }
-    }
-
-    if (MODBUS_REQUEST_PAYLOAD_U16(req->opcode)) {
-      uint8_t length = req->payload.length / 2;
-      uint16_t *ptr = req->payload.u16;
-
-      for (uint8_t i = 0; i < length; i++) {
-        if (!modbus_buffer_write_u16(b, ptr + i, true)) {
-          return false;
-        }
-      }
-    }
-  }
-
-  return true;
-}
-
-bool modbus_parser_decode_reply(modbus_reply_t *rep, modbus_buffer_t *b) {
+static bool parser_decode_reply(modbus_reply_t *rep, modbus_buffer_t *b) {
   if (MODBUS_REPLY_HAS_ATTR(rep->opcode)) {
     if (!modbus_buffer_read_u16(b, &rep->address, true)) {
       return false;
@@ -151,7 +80,7 @@ bool modbus_parser_decode_reply(modbus_reply_t *rep, modbus_buffer_t *b) {
   }
 
   if (MODBUS_REPLY_HAS_PAYLOAD(rep->opcode)) {
-    rep->payload.u8 = modbus_arch_malloc(MODBUS_MALLOC_MAX);
+    rep->payload.u8 = modbus_arch_malloc(MODBUS_PAYLOAD_BUFFER_SIZE);
 
     if (!MODBUS_OPCODE_IS_ERROR(rep->opcode)) {
       if (!modbus_buffer_read_u8(b, &rep->payload.length)) {
@@ -183,7 +112,57 @@ bool modbus_parser_decode_reply(modbus_reply_t *rep, modbus_buffer_t *b) {
   return true;
 }
 
-bool modbus_parser_encode_reply(modbus_reply_t *rep, modbus_buffer_t *b) {
+static bool parser_decode(modbus_role_t role, modbus_package_t *p,
+                          modbus_buffer_t *b) {
+  uint16_t crc16;
+  modbus_buffer_t reader, crc_reader;
+  modbus_buffer_copy(&reader, b);
+  modbus_buffer_copy(&crc_reader, b);
+
+  if (!modbus_buffer_read_u8(&reader, &p->addr)) {
+    return false;
+  }
+
+  if (!modbus_buffer_read_u8(&reader, &p->req.opcode)) {
+    return false;
+  }
+
+  if (!MODBUS_OPCODE_ALLOWED(p->req.opcode)) {
+    goto on_error;
+  }
+
+  if (role == MODBUS_ROLE_SLAVE) {
+    if (!parser_decode_request(&p->req, &reader)) {
+      return false;
+    }
+  }
+
+  if (role == MODBUS_ROLE_MASTER) {
+    if (!parser_decode_reply(&p->rep, &reader)) {
+      return false;
+    }
+  }
+
+  if (!modbus_buffer_read_u16(&reader, &crc16, false)) {
+    return false;
+  }
+
+  int len = 0;
+  len += modbus_buffer_length(&crc_reader);
+  len -= modbus_buffer_length(&reader);
+
+  if (crc16 != parser_crc16(&crc_reader, len - 2)) {
+    goto on_error;
+  }
+
+  modbus_buffer_copy(b, &reader);
+  return true;
+on_error:
+  modbus_buffer_read(b, (uint8_t *)&crc16, 1);
+  return false;
+}
+
+static bool parser_encode_reply(modbus_reply_t *rep, modbus_buffer_t *b) {
   if (MODBUS_REPLY_HAS_ATTR(rep->opcode)) {
     if (!modbus_buffer_write_u16(b, &rep->address, true)) {
       return false;
@@ -222,61 +201,44 @@ bool modbus_parser_encode_reply(modbus_reply_t *rep, modbus_buffer_t *b) {
   return true;
 }
 
-bool modbus_parser_rtu_decode(modbus_type_t type, modbus_package_t *p,
-                              modbus_buffer_t *b) {
-  modbus_buffer_t reader;
-  modbus_buffer_t crc_reader;
-  modbus_buffer_copy(&reader, b);
-  modbus_buffer_copy(&crc_reader, b);
-
-  if (!modbus_buffer_read_u8(&reader, &p->addr)) {
+static bool parser_encode_request(modbus_request_t *req, modbus_buffer_t *b) {
+  if (!modbus_buffer_write_u16(b, &req->address, true)) {
     return false;
   }
 
-  if (!modbus_buffer_read_u8(&reader, &p->req.opcode)) {
+  if (!modbus_buffer_write_u16(b, &req->length, true)) {
     return false;
   }
 
-  if (!MODBUS_OPCODE_ALLOWED(p->req.opcode)) {
-    goto on_error;
-  }
-
-  if (type == MODBUS_TYPE_SLAVE) {
-    if (!modbus_parser_decode_request(&p->req, &reader)) {
+  if (MODBUS_REQUEST_HAS_PAYLOAD(req->opcode)) {
+    if (!modbus_buffer_write_u8(b, &req->payload.length)) {
       return false;
+    }
+
+    if (MODBUS_REQUEST_PAYLOAD_BIT(req->opcode)) {
+      int writed = modbus_buffer_write(b, req->payload.u8, req->payload.length);
+      if (writed != req->payload.length) {
+        return false;
+      }
+    }
+
+    if (MODBUS_REQUEST_PAYLOAD_U16(req->opcode)) {
+      uint8_t length = req->payload.length / 2;
+      uint16_t *ptr = req->payload.u16;
+
+      for (uint8_t i = 0; i < length; i++) {
+        if (!modbus_buffer_write_u16(b, ptr + i, true)) {
+          return false;
+        }
+      }
     }
   }
 
-  if (type == MODBUS_TYPE_MASTER) {
-    if (!modbus_parser_decode_reply(&p->rep, &reader)) {
-      return false;
-    }
-  }
-
-  if (!modbus_buffer_read_u16(&reader, &p->crc16, false)) {
-    return false;
-  }
-
-  int len = 0;
-  uint16_t crc16 = 0;
-  len += modbus_buffer_length(&crc_reader);
-  len -= modbus_buffer_length(&reader);
-
-  crc16 = modbus_parser_crc16(&crc_reader, len - 2);
-  if (crc16 != p->crc16) {
-    goto on_error;
-  }
-
-  modbus_buffer_copy(b, &reader);
   return true;
-
-on_error:
-  modbus_buffer_read(b, (uint8_t *)&crc16, 1);
-  return false;
 }
 
-bool modbus_parser_rtu_encode(modbus_type_t type, modbus_package_t *p,
-                              modbus_buffer_t *b) {
+static bool parser_encode(modbus_role_t role, modbus_package_t *p,
+                          modbus_buffer_t *b) {
   modbus_buffer_t writer;
   modbus_buffer_t crc_reader;
   modbus_buffer_copy(&writer, b);
@@ -290,14 +252,14 @@ bool modbus_parser_rtu_encode(modbus_type_t type, modbus_package_t *p,
     return false;
   }
 
-  if (type == MODBUS_TYPE_SLAVE) {
-    if (!modbus_parser_encode_reply(&p->rep, &writer)) {
+  if (role == MODBUS_ROLE_SLAVE) {
+    if (!parser_encode_reply(&p->rep, &writer)) {
       return false;
     }
   }
 
-  if (type == MODBUS_TYPE_MASTER) {
-    if (!modbus_parser_encode_request(&p->req, &writer)) {
+  if (role == MODBUS_ROLE_MASTER) {
+    if (!parser_encode_request(&p->req, &writer)) {
       return false;
     }
   }
@@ -309,14 +271,36 @@ bool modbus_parser_rtu_encode(modbus_type_t type, modbus_package_t *p,
     crc_reader.flag = MODBUS_BUFFER_FULL;
   }
 
-  uint16_t crc16;
   int len = 0;
+  uint16_t crc16;
   len = modbus_buffer_length(&crc_reader);
-  crc16 = modbus_parser_crc16(&crc_reader, len);
+  crc16 = parser_crc16(&crc_reader, len);
   modbus_buffer_write_u16(&writer, &crc16, false);
 
   modbus_buffer_copy(b, &writer);
   return true;
+}
+
+bool modbus_parser_rtu_decode(modbus_role_t role, modbus_package_t *p,
+                              void *driver) {
+  modbus_driver_rtu_t *drv = driver;
+  modbus_buffer_t *inbuf = &drv->inbuf;
+  modbus_buffer_t *oubuf = &drv->oubuf;
+
+  modbus_buffer_writer(inbuf, driver_reader, driver);
+  modbus_buffer_reader(oubuf, driver_writer, driver);
+
+  if (modbus_buffer_is_empty(inbuf)) return false;
+
+  return parser_decode(role, p, inbuf);
+}
+
+bool modbus_parser_rtu_encode(modbus_role_t role, modbus_package_t *p,
+                              void *driver) {
+  modbus_driver_rtu_t *drv = driver;
+  modbus_buffer_t *oubuf = &drv->oubuf;
+
+  return parser_encode(role, p, oubuf);
 }
 
 modbus_parser_t modbus_parser_rtu = {
